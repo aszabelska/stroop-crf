@@ -103,7 +103,7 @@ for (loop in 1:loops) {
 
 ###############################################################################
 ### Rick comparing variable importance between train and test set          ####
-###                                                                        ####
+### This code can run independently from above (e.g., can start here)      ####
 ###############################################################################
 
 library(randomForest)
