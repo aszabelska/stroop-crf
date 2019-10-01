@@ -6,6 +6,10 @@
 ### for cross-validation tests. Can skip to around line 104 for that.       ###
 ###############################################################################
 
+# To avoid having to run the script (can take >1 hour), you can load the data
+# and results objects from my most recent run by uncommenting the below line.
+#load("all.RData")
+
 library(randomForest)
 library(party)
 
@@ -102,8 +106,10 @@ for (loop in 1:loops) {
 }
 
 ###############################################################################
-### Rick comparing variable importance between train and test set          ####
-### This code can run independently from above (e.g., can start here)      ####
+### Above output yields a very high R^2 for the CRF model. Here, Rick       ###
+### tried to confirm this by using a train/test holdout split.              ###
+### Also compare variable importance between models built on train and test ###
+### This code can run independently from above (e.g., can start here)       ###
 ###############################################################################
 
 library(randomForest)
@@ -113,10 +119,11 @@ library(party)
 data <- read.csv("./data/Data NomTurk.csv", stringsAsFactors = F)
 names(data)[1] <- "StroopEffect"
 
-# remove missing rows
+# Remove missing rows
 data <- na.omit(data)
 
-seeds <- 100
+# Number of seeds doubles as number of loops to iterate over
+seeds <- 1
 
 # initialize objects
 variance_account_rf <- NA
@@ -139,7 +146,8 @@ for (seed in 1:seeds){
   train <- data_randomized[1:split,] #first 4/5 to train
   test <- data_randomized[(split+1):nrow(data),] #remaining 1/5 to test
   
-  ##### fit the random forest model to train
+  ##### First steps are to build and evaluate the simple random forest model
+  # fit the random forest model to the train dataset
   forest_model <- randomForest(StroopEffect ~ ., 
                                data = train, 
                                importance = TRUE,
@@ -148,7 +156,7 @@ for (seed in 1:seeds){
                                replace = FALSE,
                                sampsize = ceiling(.632 * nrow(train)))
   
-  ##### fit the random forest model to test
+  # fit the random forest model to the test dataset
   forest_model_test <- randomForest(StroopEffect ~ ., 
                                data = test, 
                                importance = TRUE,
@@ -161,13 +169,16 @@ for (seed in 1:seeds){
   variable_importance_rf[seed] <- list(importance(forest_model, type=1))
   variable_importance_rf_test[seed] <- list(importance(forest_model_test, type=1))
     
-  # extract predictions
+  # Use the model built from the training dataset and use it to predict 
+  # outcomes in the test dataset
   model_prediction <- predict(forest_model, newdata = test)
   
-  # evaluate the model, pull out R^2
+  # Compare the predicted values to the actual values Stroop values in the test
+  # dataset. Here using R^2.
   variance_account_rf[seed] <- cor(test$StroopEffect, model_prediction)^2
   
-  ####### fit the conditional forest train
+  ####### Repeating above procedure for CRF
+  # fit the conditional forest to the train dataset
   forest_model <- cforest(StroopEffect ~ ., 
                           data = train, 
                           controls = cforest_control(teststat = "quad", 
@@ -177,7 +188,7 @@ for (seed in 1:seeds){
                                                      mtry = 5,
                                                      replace = FALSE,
                                                      fraction = 0.632))
-  ####### fit the conditional forest test
+  # fit the conditional forest to the test dataset
   forest_model_test <- cforest(StroopEffect ~ ., 
                           data = test, 
                           controls = cforest_control(teststat = "quad", 
@@ -192,13 +203,15 @@ for (seed in 1:seeds){
   variable_importance_crf[seed] <- list(varimp(forest_model))
   variable_importance_crf_test[seed] <- list(varimp(forest_model_test))
   
-  # extract predictions
+  # Use the model built from the training dataset and use it to predict 
+  # outcomes in the test dataset
   model_prediction <- predict(forest_model, newdata=test)
   
-  # evaluate the model, pull out R^2
+  # Compare the predicted values to the actual values Stroop values in the test
+  # dataset. Here using R^2.
   variance_account_crf[seed] <- as.numeric(cor(test$StroopEffect, model_prediction)^2)
   
-  ######## Compare to linear regression
+  ######## Compare this prediction accuracy to linear regression
   # Build the model predicting stroop from all other variables
   model1 <- lm(data=train,StroopEffect~.)
   summary(model1) # same model, so same results
@@ -209,17 +222,18 @@ for (seed in 1:seeds){
   variance_account_regression[seed] <- cor(test$StroopEffect, model_prediction)^2
 }
 
-# Average r squared across the trials for
-# RF
+# Mean r squared across the trials (e.g., average model performance in
+# predicting the test/holdout data across the seeds)
+# Random Forest
 mean(variance_account_rf)
-# CRF
+# Conditional Random Forest
 mean(variance_account_crf)
 # Linear regression
 mean(variance_account_regression)
 
 merged_rsq_test <- data.frame(variance_account_rf,variance_account_crf,variance_account_regression)
 names(merged_rsq_test) <- c("rf","crf","lm")
-write.csv(merged_rsq_test, "onefifth_rsquared_test.csv")
+# write.csv(merged_rsq_test, "onefifth_rsquared_test.csv")
 
 # Tidying up - convert to data frames and change variable names
 variable_importance_rf <- as.data.frame(variable_importance_rf)
@@ -245,5 +259,13 @@ traintest_cor_rf[seed] <- traintest_cor_rf_model$estimate
 traintest_cor_crf[seed] <- traintest_cor_crf_model$estimate
 }
 
+# Mean rank order correlation, across all seeds, between the variable importance
+# list generated by a model fit to the training dataset and a model fit to the 
+# test dataset
 mean(traintest_cor_rf)
 mean(traintest_cor_crf)
+
+# Uncomment the below line if you want to overwrite the saved environment
+#save.image("all.RData")
+
+
