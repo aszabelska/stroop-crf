@@ -65,7 +65,7 @@ for (loop in 1:loops) {
                                     data = data, 
                                     controls = cforest_control(teststat = "quad", 
                                                                testtype = "Univ", 
-                                                               mincriterion = 0, 
+                                                               mincriterion = 0.95, 
                                                                ntree = num_trees,
                                                                mtry = num_tries,
                                                                replace = FALSE,

@@ -24,7 +24,7 @@ forest_model <- cforest(StroopEffect ~ .,
                         data = train, 
                         controls = cforest_control(teststat = "quad", 
                                                    testtype = "Univ", 
-                                                   mincriterion = 0, 
+                                                   mincriterion = 0.95, 
                                                    ntree = 500,
                                                    mtry = 5,
                                                    replace = FALSE,
@@ -38,4 +38,4 @@ model_prediction_test <- predict(forest_model, newdata = test)
 cor(train$StroopEffect, model_prediction_train)^2
 cor(test$StroopEffect, model_prediction_test)^2
 
-# EDIT: Was overfitting. As per Stella's email, we need to change the cforest 'mincriterion' argument to .95
+# EDIT: Was overfitting. As per Stella's email, we need to change the cforest 'mincriterion' argument to .95 (was previously 0 in all versions)
